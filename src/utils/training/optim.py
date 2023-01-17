@@ -9,6 +9,41 @@ import math
 import torch
 from torch.optim.optimizer import Optimizer, required
 
+def configure_parameter_groups(model, cfg):
+    # separate out all parameters to those that will and won't experience regularizing weight decay
+    decay = set()
+    no_decay = set()
+    cls = set()
+    for param_name, param in model.named_parameters():
+        if 'classifier' in param_name:
+            cls.add(param_name)
+        elif param_name.endswith('bias'):
+            # all biases will not be decayed
+            no_decay.add(param_name)
+        elif param_name.endswith('weight'):
+            if 'bn' in param_name:
+                # weights of whitelist modules will be weight decayed
+                no_decay.add(param_name)
+            else:
+                # weights of blacklist modules will NOT be weight decayed
+                decay.add(param_name)
+
+    # validate that we considered every parameter
+    param_dict = {pn: p for pn, p in model.named_parameters()}
+    inter_params = decay & no_decay & cls
+    union_params = decay | no_decay | cls
+    assert len(inter_params) == 0, "parameters %s made it into both decay/no_decay or cls sets!" % (str(inter_params), )
+    assert len(param_dict.keys() - union_params) == 0, "parameters %s were not separated into either decay/no_decay set!" \
+                                                % (str(param_dict.keys() - union_params), )
+
+    # create the pytorch optimizer object
+    optim_groups = [
+        {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": cfg.WEIGHT_DECAY, "lr": cfg.LR},
+        {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0, "lr": cfg.LR},
+        {"params": [param_dict[pn] for pn in sorted(list(cls))], "weight_decay": 0.0, "lr": cfg.CLASSIFIER_LR}
+    ]
+    return optim_groups
+
 class LinearWarmupWithCosineAnnealing:
     def __init__(self, num_warmup_steps: int, num_training_steps: int, last_epoch=-1) -> None:
         self.num_warmup_steps = num_warmup_steps
@@ -37,9 +72,9 @@ class LARS(Optimizer):
         self,
         params,
         lr=required,
-        momentum=0,
-        dampening=0,
-        weight_decay=0,
+        momentum=0.0,
+        dampening=0.0,
+        weight_decay=0.0,
         nesterov=False,
         trust_coefficient=0.001,
         eps=1e-8,
