@@ -15,6 +15,7 @@ class KMCLR(nn.Module):
         super().__init__()
         self.online_eval = online_eval
         self.reset_interval = reset_interval
+        self.n_clusters = n_clusters
         self.step = 1
 
         resnet18 = models.resnet18()
@@ -81,11 +82,10 @@ class KMCLR(nn.Module):
             # Only update queue with training batches
             if self.training:
                 if (self.step % self.reset_interval) == 0:
-                    print('Resetting centroids')
-                    self.kmeans._init_centroids(proj1.detach().cpu().numpy().astype(float))
-                    print(self.kmeans.cluster_centers_)
+                    self.kmeans = MiniBatchKMeans(
+                        n_clusters=self.n_clusters, 
+                        init=np.random.rand(self.n_clusters, proj1.shape[1]))
                 self.kmeans.partial_fit(proj1.detach().cpu().numpy().astype(float))
-                print(self.kmeans.cluster_centers_, 'AFTER')
                 self.step += 1
         
         out_dict = {'f1':f1, 'f2':f2,
