@@ -83,8 +83,8 @@ class KMCLR(nn.Module):
             if self.training:
                 if (self.step % self.reset_interval) == 0:
                     self.kmeans = MiniBatchKMeans(
-                        n_clusters=self.n_clusters, 
-                        init=np.random.rand(self.n_clusters, proj1.shape[1]))
+                        n_clusters=self.n_clusters)
+                    self.kmeans.partial_fit(np.random.rand(self.n_clusters, proj1.shape[1]))
                 self.kmeans.partial_fit(proj1.detach().cpu().numpy().astype(float))
                 self.step += 1
         

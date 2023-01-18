@@ -29,7 +29,7 @@ if __name__ == '__main__':
     val_data = CIFAR100('dev', augment_cfg=cfg['AUGMENT'], include_label=True)
 
     train_loader = DataLoader(
-        train_data, batch_size=cfg.TRAIN.BATCH_SIZE, 
+        train_data, batch_size=cfg.TRAIN.BATCH_SIZE, shuffle=True,
         pin_memory=True, num_workers=cfg.SYSTEM.NUM_WORKERS)
     val_loader = DataLoader(
         val_data, batch_size=cfg.TRAIN.BATCH_SIZE, 
