@@ -23,7 +23,6 @@ class CIFAR100(Dataset):
             self.data = self.data.rename_column('fine_label', 'label')
 
         train_ids, val_ids = self.__get_validation_indexes(num_elem_per_class=50)
-        print(train_ids.shape)
         if split == 'train':
             self.data = self.data.select(train_ids)
         elif split == 'dev':

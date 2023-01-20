@@ -5,9 +5,9 @@ _C = CN()
 # System configuration parameters
 
 _C.SYSTEM = CN()
-_C.SYSTEM.NUM_WORKERS = 0
+_C.SYSTEM.NUM_WORKERS = 1
 _C.SYSTEM.DEVICE = 'cuda'
-_C.SYSTEM.RANDOM_STATE = 42
+_C.SYSTEM.SEED = 42
 
 # Training configuration parameters
 
@@ -30,7 +30,7 @@ _C.MODEL.EMBED_SIZE = 256
 _C.MODEL.PROJ_HIDDEN_SIZE = 2048
 _C.MODEL.PRED_HIDDEN_SIZE = 4096
 _C.MODEL.NUM_CLASSES = 100
-_C.MODEL.NUM_CENTROIDS = 200
+_C.MODEL.NUM_CENTROIDS = 400
 _C.MODEL.QUEUE_SIZE = 80_000
 
 # Wandb logging options
@@ -45,8 +45,8 @@ _C.LOG.EMB_INTERVAL = 50
 
 _C.CHECKPOINT = CN()
 _C.CHECKPOINT.RESTORE = False
-_C.CHECKPOINT.RESTORE_FROM = 'checkpoints/best_model.pt'
-_C.CHECKPOINT.SAVE_TO = 'checkpoints/model_epoch.pt'
+_C.CHECKPOINT.RESTORE_FROM = 'checkpoints/model_epoch_5.pt'
+_C.CHECKPOINT.SAVE_TO_FOLDER = 'checkpoints'
 _C.CHECKPOINT.INTERVAL = 100
 
 # Options for the two augmented views during pre-training
