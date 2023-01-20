@@ -1,5 +1,10 @@
+import os
 import tqdm
 import wandb
+import random
+import numpy as np
+
+import torch
 from torch.optim.lr_scheduler import LambdaLR
 
 from src.config.config import get_cfg_defaults
@@ -8,6 +13,7 @@ from src.utils.training.optim import configure_parameter_groups, LARS, LinearWar
 
 class Trainer:
     def __init__(self, model, train_loader, val_loader=None, device='cuda', cfg=get_cfg_defaults()):
+        self._set_seed(seed=cfg.SYSTEM.SEED)
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -29,17 +35,7 @@ class Trainer:
                 num_training_steps=num_training_steps)
             )
         
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project=cfg.LOG.WANDB_PROJECT,
-            name=cfg.LOG.WANDB_RUN_NAME,
-    
-            # track hyperparameters and run metadata
-            config={
-            **cfg,
-            "architecture": "resnet18",
-            "dataset": "CIFAR-100",
-            })
+        self.cfg = cfg
     
     def _train_epoch(self, i):
         epoch_loss = 0.0
@@ -120,18 +116,84 @@ class Trainer:
         if log_emb:
             log_dict[f'embeddings_{i}'] = emb_table
         return log_dict
+    
+    def _save_checkpoint(self, epoch, path, resume=True):
+        if resume:
+            # If it's kmclr also save the values in the kmeans.cluster_centers
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'scheduler': self.scheduler,
+                'wandb_id': wandb.run.id
+                }, path)
+        else:
+            torch.save(self.model.backbone.state_dict(prefix='backbone.'), path)
+    
+    def _restore_checkpoint(self, path):
+        print('Restoring checkpoint ', path)
+        checkpoint = torch.load(path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler = checkpoint['scheduler']
+        starting_epoch = checkpoint['epoch'] + 1
+        wandb_id = checkpoint['wandb_id']
+        return starting_epoch, wandb_id
+    
+    def _set_seed(self, seed=42):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed) # safe to call even when the GPU is not availabe
+
+        # When running on the CuDNN backend, two further options must be set
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+        # Set a fixed value for the hash seed
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        print(f"Random seed set as {seed}")
 
     def fit(self):
-        # TODO: add checkpoints saver
-        for i in range(self.num_epochs):
+        
+        starting_epoch = 0
+        if self.cfg.CHECKPOINT.RESTORE:
+            starting_epoch, wandb_id = self._restore_checkpoint(path=self.cfg.CHECKPOINT.RESTORE_FROM)
+        else:
+            wandb_id = wandb.util.generate_id()
+
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project=self.cfg.LOG.WANDB_PROJECT,
+            name=self.cfg.LOG.WANDB_RUN_NAME,
+            id=wandb_id,
+            resume='allow',
+    
+            # track hyperparameters and run metadata
+            config={
+            **self.cfg,
+            "architecture": "resnet18",
+            "dataset": "CIFAR-100",
+            })
+
+        for i in range(starting_epoch, self.num_epochs):
             log_dict = self._train_epoch(i)
             log_dict['lr'] = self.scheduler.get_last_lr()[0]
             log_dict['classifier_lr'] = self.scheduler.get_last_lr()[-1]
+
             if (i % self.eval_interval) == 0:
                 eval_log_dict = self._eval_epoch(i)
-                wandb.log({**log_dict, **eval_log_dict})
+                wandb.log({**log_dict, **eval_log_dict}, step=i)
             else:
-                wandb.log(log_dict)
+                wandb.log(log_dict, step=i)
+
+            if (i % self.cfg.CHECKPOINT.INTERVAL) == 0:
+                path = os.path.join(self.cfg.CHECKPOINT.SAVE_TO_FOLDER, f'epoch_{i}.pt')
+                self._save_checkpoint(epoch=i, path=path, resume=True)
+            
+            if i == self.num_epochs -1:
+                path = os.path.join(self.cfg.CHECKPOINT.SAVE_TO_FOLDER, 'final.pt')
+                self._save_checkpoint(epoch=i, path=path, resume=False)
         
         wandb.finish()
 

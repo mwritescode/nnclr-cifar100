@@ -7,8 +7,8 @@ class QueueSupportSet(nn.Module):
         super().__init__()
         self.size = queue_size
         self.embed_size = embed_size
-        self.register_buffer("queue", tensor=torch.randn(queue_size, embed_size, dtype=torch.float), persistent=False)
-        self.register_buffer("queue_pointer", tensor=torch.zeros(1, dtype=torch.long), persistent=False)
+        self.register_buffer("queue", tensor=torch.randn(queue_size, embed_size, dtype=torch.float))
+        self.register_buffer("queue_pointer", tensor=torch.zeros(1, dtype=torch.long))
     
     @torch.no_grad()
     def update_queue(self, batch: torch.Tensor):

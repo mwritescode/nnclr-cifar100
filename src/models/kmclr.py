@@ -51,6 +51,7 @@ class KMCLR(nn.Module):
 
         self.kmeans = MiniBatchKMeans(n_clusters=n_clusters)
         self.kmeans.partial_fit(np.random.rand(n_clusters, embed_size))
+        self.register_buffer("_cluster_centers", tensor=torch.tensor(self.kmeans.cluster_centers_))
         self.criterion = NNCLRLoss()
     
     def forward(self, x1, x2=None, labels=None):
@@ -66,18 +67,16 @@ class KMCLR(nn.Module):
             proj1, proj2 = self.projection_mlp(f1), self.projection_mlp(f2)
             pred1, pred2 = self.prediction_mlp(proj1), self.prediction_mlp(proj2)
 
-            tensor_centroids = torch.tensor(self.kmeans.cluster_centers_)
-
             nn1 = torch.index_select(
-                tensor_centroids, 0, 
+                self._cluster_centers, 0, 
                 torch.tensor(self.kmeans.predict(proj1.detach().cpu().numpy().astype(float)), 
-                dtype=torch.long))
+                dtype=torch.long, device=proj1.device))
             nn2 = torch.index_select(
-                tensor_centroids, 0, 
+                self._cluster_centers, 0, 
                 torch.tensor(self.kmeans.predict(proj2.detach().cpu().numpy().astype(float)), 
-                dtype=torch.long))
+                dtype=torch.long, device=proj2.device))
 
-            loss = self.criterion(preds=(pred1, pred2), neighbors=(nn1.float().to(proj1.device), nn2.float().to(proj2.device)))
+            loss = self.criterion(preds=(pred1, pred2), neighbors=(nn1.float(), nn2.float()))
 
             # Only update queue with training batches
             if self.training:
@@ -86,6 +85,7 @@ class KMCLR(nn.Module):
                         n_clusters=self.n_clusters)
                     self.kmeans.partial_fit(np.random.rand(self.n_clusters, proj1.shape[1]))
                 self.kmeans.partial_fit(proj1.detach().cpu().numpy().astype(float))
+                self._cluster_centers = torch.tensor(self.kmeans.cluster_centers_, device=proj1.device)
                 self.step += 1
         
         out_dict = {'f1':f1, 'f2':f2,
@@ -109,6 +109,10 @@ class KMCLR(nn.Module):
         out = self.model_output_cls(**out_dict)
 
         return out
+    
+    def load_state_dict(self, state_dict, strict=True):
+        self.kmeans.cluster_centers = state_dict['_cluster_centers'].cpu().numpy().astype(float)
+        return super().load_state_dict(state_dict, strict)
     
     def __compute_cls_loss(self, features, labels=None):
         logits = self.classifier(features.detach())
