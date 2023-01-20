@@ -1,4 +1,5 @@
 import torchinfo
+from argparse import ArgumentParser
 from torch.utils.data import DataLoader
 
 from src.trainer import Trainer
@@ -23,8 +24,13 @@ def get_model_from_cfg(cfg, reset_interval):
 
 
 if __name__ == '__main__':
-    def_cfg = get_cfg_defaults()
-    cfg = def_cfg # TODO: merge default cfg with new cfg from YAML file
+    args = ArgumentParser()
+    args.add_argument('config_path', help='Path of the model\'s configuration file')
+    args = args.parse_args()
+
+    cfg = get_cfg_defaults()
+    cfg.merge_from_file(args.config_path)
+    
     train_data = CIFAR100('train', augment_cfg=cfg['AUGMENT'], include_label=True)
     val_data = CIFAR100('dev', augment_cfg=cfg['AUGMENT'], include_label=True)
 

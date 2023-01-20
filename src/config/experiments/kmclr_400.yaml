@@ -1,0 +1,71 @@
+AUGMENT:
+  COLOR_JITTER:
+    BRIGHTNESS:
+    - 0.4
+    - 0.4
+    CONTRAST:
+    - 0.4
+    - 0.4
+    HUE:
+    - 0.1
+    - 0.1
+    PROB:
+    - 0.8
+    - 0.8
+    SATURATION:
+    - 0.2
+    - 0.2
+  CROP_SIZE: 32
+  GAUSSIAN_BLUR:
+    PROB:
+    - 1.0
+    - 0.1
+  GRAYSCALE:
+    PROB:
+    - 0.2
+    - 0.2
+  HORIZONTAL_FLIP:
+    PROB:
+    - 0.5
+    - 0.5
+  RCC:
+    SCALE:
+    - 0.08
+    - 1.0
+  SOLARIZATION:
+    PROB:
+    - 0.0
+    - 0.2
+CHECKPOINT:
+  INTERVAL: 100
+  RESTORE: false
+  RESTORE_FROM: checkpoints/model_epoch_500.pt
+  SAVE_TO_FOLDER: checkpoints/kmclr-400
+LOG:
+  EMBEDDINGS: true
+  EMB_INTERVAL: 50
+  WANDB_PROJECT: nnclr-cifar100
+  WANDB_RUN_NAME: kmclr-400-pretrain
+MODEL:
+  EMBED_SIZE: 256
+  NAME: kmclr
+  NUM_CENTROIDS: 400
+  NUM_CLASSES: 100
+  PRED_HIDDEN_SIZE: 4096
+  PROJ_HIDDEN_SIZE: 2048
+  QUEUE_SIZE: 80000
+SYSTEM:
+  DEVICE: cuda
+  NUM_WORKERS: 1
+  SEED: 42
+TRAIN:
+  BATCH_SIZE: 64
+  CLASSIFIER_LR: 0.01
+  EVAL_INTERVAL: 1
+  LR: 0.2
+  MOMENTUM: 0.9
+  NUM_EPOCHS: 500
+  ONLINE_EVAL: true
+  RESET_CENTROIDS_INTERVAL: 3
+  WARMUP: 10
+  WEIGHT_DECAY: 1.0e-06

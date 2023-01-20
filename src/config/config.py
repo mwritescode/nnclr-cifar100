@@ -77,7 +77,20 @@ _C.AUGMENT.HORIZONTAL_FLIP = CN()
 _C.AUGMENT.HORIZONTAL_FLIP.PROB = [0.5, 0.5]
 
 def get_cfg_defaults():
-  """Get a yacs CfgNode object with default values for my_project."""
-  # Return a clone so that the defaults will not be altered
-  # This is for the "local variable" use pattern
-  return _C.clone()
+    """Get a yacs CfgNode object with default values for my_project."""
+    # Return a clone so that the defaults will not be altered
+    # This is for the "local variable" use pattern
+    return _C.clone()
+
+def save_cfg_default():
+    """
+    Save in a YAML file the default version of the configuration file, 
+    in order to provide a template to be modified.
+    """
+    with open('src/config/experiments/default.yaml', 'w') as f:
+        f.write(_C.dump())
+        f.flush()
+        f.close()
+
+if __name__ == '__main__':
+    save_cfg_default()
