@@ -1,0 +1,21 @@
+CHECKPOINT:
+  INTERVAL: 20
+  RESTORE: false
+  RESTORE_FROM: checkpoints/model_epoch_5.pt
+  SAVE_TO_FOLDER: checkpoints/linear_eval
+LINEAR_EVAL:
+  BATCH_SIZE: 128
+  CHECKPOINT: checkpoints/nnclr/final.pt
+  EPOCHS: 90
+  LR: 0.1
+  MOMENTUM: 0.9
+  WARMUP: 0
+LOG:
+  EMBEDDINGS: true
+  EMB_INTERVAL: 50
+  WANDB_PROJECT: nnclr-cifar100
+  WANDB_RUN_NAME: nnclr-linear-eval
+SYSTEM:
+  DEVICE: cuda
+  NUM_WORKERS: 1
+  SEED: 42
