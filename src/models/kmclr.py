@@ -49,8 +49,9 @@ class KMCLR(nn.Module):
             self.cls_criterion = nn.CrossEntropyLoss()
         self.model_output_cls = NNCLRModelOutputWithLinearEval if self.online_eval else NNCLRModelOutput
 
-        self.kmeans = MiniBatchKMeans(n_clusters=n_clusters)
-        self.kmeans.partial_fit(np.random.rand(n_clusters, embed_size))
+        self.kmeans = MiniBatchKMeans(n_clusters=n_clusters, n_init=1)
+        self.init_values = np.random.rand(n_clusters, embed_size)
+        self.kmeans.partial_fit(self.init_values)
         self.register_buffer("_cluster_centers", tensor=torch.tensor(self.kmeans.cluster_centers_))
         self.criterion = NNCLRLoss()
     
@@ -80,11 +81,19 @@ class KMCLR(nn.Module):
 
             # Only update queue with training batches
             if self.training:
+                proj1_cpu = proj1.detach().cpu().numpy().astype(float)
+                batch_size = proj1_cpu.shape[0]
+                if batch_size < self.init_values.shape[0]:
+                    self.init_values[:-batch_size, :] = self.init_values[batch_size:, :]
+                    self.init_values[-batch_size:, :] = proj1_cpu
+                else:
+                    idx = np.random.choice(batch_size, size=self.init_values.shape[0], replace=False)
+                    self.init_values = proj1_cpu[idx, :]
                 if (self.step % self.reset_interval) == 0:
                     self.kmeans = MiniBatchKMeans(
-                        n_clusters=self.n_clusters)
-                    self.kmeans.partial_fit(np.random.rand(self.n_clusters, proj1.shape[1]))
-                self.kmeans.partial_fit(proj1.detach().cpu().numpy().astype(float))
+                        n_clusters=self.n_clusters, n_init=1)
+                    self.kmeans.partial_fit(self.init_values)
+                self.kmeans.partial_fit(proj1_cpu)
                 self._cluster_centers = torch.tensor(self.kmeans.cluster_centers_, device=proj1.device)
                 self.step += 1
         
@@ -111,7 +120,7 @@ class KMCLR(nn.Module):
         return out
     
     def load_state_dict(self, state_dict, strict=True):
-        self.kmeans.cluster_centers = state_dict['_cluster_centers'].cpu().numpy().astype(float)
+        self.kmeans.cluster_centers_ = state_dict['_cluster_centers'].cpu().numpy().astype(float)
         return super().load_state_dict(state_dict, strict)
     
     def __compute_cls_loss(self, features, labels=None):
