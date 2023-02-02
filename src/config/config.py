@@ -76,6 +76,14 @@ _C.AUGMENT.SOLARIZATION.PROB = [0.0, 0.2]
 _C.AUGMENT.HORIZONTAL_FLIP = CN()
 _C.AUGMENT.HORIZONTAL_FLIP.PROB = [0.5, 0.5]
 
+_C.LINEAR_EVAL = CN()
+_C.LINEAR_EVAL.EPOCHS = 90
+_C.LINEAR_EVAL.LR = 0.1
+_C.LINEAR_EVAL.MOMENTUM = 0.9
+_C.LINEAR_EVAL.BATCH_SIZE = 128
+_C.LINEAR_EVAL.WARMUP = 0
+_C.LINEAR_EVAL.CHECKPOINT = 'checkpoints/nnclr/final.pt'
+
 def get_cfg_defaults():
     """Get a yacs CfgNode object with default values for my_project."""
     # Return a clone so that the defaults will not be altered
@@ -88,6 +96,13 @@ def save_cfg_default():
     in order to provide a template to be modified.
     """
     with open('src/config/experiments/default.yaml', 'w') as f:
+        f.write(_C.dump())
+        f.flush()
+        f.close()
+    
+    with open('src/config/experiments/linear_eval.yaml', 'w') as f:
+        for key in ['AUGMENT', 'MODEL', 'TRAIN']:
+            del _C[key]
         f.write(_C.dump())
         f.flush()
         f.close()
