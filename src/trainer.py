@@ -102,6 +102,7 @@ class Trainer(ABC):
                 self._save_checkpoint(epoch=i, path=path, resume=False)
         
         wandb.finish()
+        return wandb_id
 
 
 class TrainerForPretraining(Trainer):
@@ -219,7 +220,7 @@ class TrainerForPretraining(Trainer):
             torch.save(self.model.backbone.state_dict(prefix='backbone.'), path)
         
 class TrainerForLinearEval(Trainer):
-    def __init__(self, model, train_loader, val_loader=None, device='cuda', cfg=get_cfg_defaults()):
+    def __init__(self, model, train_loader, val_loader=None, device='cuda', cfg=get_cfg_defaults(), test_loader=None):
         super().__init__(model, train_loader, val_loader, device, cfg)
         self.num_epochs = cfg.LINEAR_EVAL.EPOCHS + cfg.LINEAR_EVAL.WARMUP
         num_warmup_steps = cfg.LINEAR_EVAL.WARMUP * len(train_loader)
@@ -231,6 +232,7 @@ class TrainerForLinearEval(Trainer):
                 num_warmup_steps=num_warmup_steps, 
                 num_training_steps=num_training_steps)
             )
+        self.test_loader = test_loader
     
     def _train_epoch(self, i):
         self.model.train()
@@ -264,7 +266,7 @@ class TrainerForLinearEval(Trainer):
         return log_dict
 
     @torch.no_grad()
-    def _eval_epoch(self, i):
+    def _eval_epoch(self, i, dataset=None):
         self.model.eval()
         global_loss = 0.0
         global_acc1 = 0.0
@@ -272,7 +274,9 @@ class TrainerForLinearEval(Trainer):
         current_step = 1
         log_dict = {}
 
-        pbar = tqdm.tqdm(self.val_loader, desc=f'Epoch {i}: Evaluating...', total=len(self.val_loader))
+        if dataset is None:
+            dataset = self.val_loader
+        pbar = tqdm.tqdm(dataset, desc=f'Epoch {i}: Evaluating...', total=len(dataset))
 
         for batch in pbar:
             x = batch['img'].to('cuda')
@@ -305,3 +309,14 @@ class TrainerForLinearEval(Trainer):
                 }, path)
         else:
             torch.save(self.model.state_dict(), path)
+    
+    def fit(self):
+        wandb_id = super().fit()
+        if self.test_loader is not None:
+            test_log = self._eval_epoch(0, dataset=self.test_loader)
+            api = wandb.Api()
+            run = api.run(f"mwritescode/{self.cfg.LOG.WANDB_PROJECT}/{wandb_id}")
+            for key in test_log:
+                run.summary["test_" + key] = test_log[key]
+            run.summary.update()
+
